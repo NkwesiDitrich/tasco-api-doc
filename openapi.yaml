@@ -27,11 +27,21 @@ components:
     Workspace:
       type: object
       properties:
-        _id: { type: string, description: Workspace ID }
-        name: { type: string, description: Workspace name }
-        description: { type: string, description: Workspace description }
-        color: { type: string, description: Workspace color code (e.g., #FF5733) }
-        owner: { type: string, description: User ID of the workspace owner }
+        _id:
+          type: string
+          description: Workspace ID
+        name:
+          type: string
+          description: Workspace name
+        description:
+          type: string
+          description: Workspace description
+        color:
+          type: string
+          description: Workspace color code (e.g., #FF5733)
+        owner:
+          type: string
+          description: User ID of the workspace owner
         members:
           type: array
           items:
