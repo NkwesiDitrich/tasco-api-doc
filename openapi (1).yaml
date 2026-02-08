@@ -1,0 +1,1029 @@
+openapi: 3.0.0
+info:
+  title: Tasco API Documentation
+  description: Comprehensive API documentation for the Project Manager App (Tasco).
+  version: 1.0.0
+servers:
+  - url: http://localhost:3001/api-v1
+    description: Local development server
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    User:
+      type: object
+      properties:
+        _id: { type: string, description: User ID }
+        name: { type: string, description: User's full name }
+        email: { type: string, format: email, description: User's email address }
+        profilePicture: { type: string, format: uri, description: URL to user's profile picture }
+        xp: { type: number, description: Experience points }
+        points: { type: number, description: Gamification points }
+        level: { type: number, description: User's level }
+        streak: { type: number, description: Current streak of activity }
+    Workspace:
+      type: object
+      properties:
+        _id: { type: string, description: Workspace ID }
+        name: { type: string, description: Workspace name }
+        description: { type: string, description: Workspace description }
+        color: { type: string, description: Workspace color code (e.g., #FF5733) }
+        owner: { type: string, description: User ID of the workspace owner }
+        members:
+          type: array
+          items:
+            type: object
+            properties:
+              user: { type: string, description: User ID of the member }
+              role: { type: string, enum: [owner, member, admin, viewer], description: Role of the member in the workspace }
+    Project:
+      type: object
+      properties:
+        _id: { type: string, description: Project ID }
+        title: { type: string, description: Project title }
+        description: { type: string, description: Project description }
+        workspace: { type: string, description: Workspace ID the project belongs to }
+        status: { type: string, enum: [Planning, In Progress, On Hold, Completed, Cancelled], description: Current status of the project }
+        startDate: { type: string, format: date-time, description: Project start date }
+        dueDate: { type: string, format: date-time, description: Project due date }
+        progress: { type: number, description: Project progress percentage (0-100) }
+    Task:
+      type: object
+      properties:
+        _id: { type: string, description: Task ID }
+        title: { type: string, description: Task title }
+        description: { type: string, description: Task description }
+        project: { type: string, description: Project ID the task belongs to }
+        status: { type: string, enum: [To Do, In Progress, Review, Done], description: Current status of the task }
+        priority: { type: string, enum: [Low, Medium, High], description: Task priority }
+        assignees: { type: array, items: { type: string }, description: List of user IDs assigned to the task }
+        watchers: { type: array, items: { type: string }, description: List of user IDs watching the task }
+        dueDate: { type: string, format: date-time, description: Task due date }
+        completedAt: { type: string, format: date-time, description: Timestamp when the task was completed }
+        estimatedHours: { type: number, description: Estimated hours for the task }
+        actualHours: { type: number, description: Actual hours spent on the task }
+        tags: { type: array, items: { type: string }, description: List of tags for the task }
+        subtasks:
+          type: array
+          items:
+            type: object
+            properties:
+              _id: { type: string }
+              title: { type: string }
+              completed: { type: boolean }
+              createdAt: { type: string, format: date-time }
+        comments: { type: array, items: { type: string }, description: List of comment IDs on the task }
+        attachments:
+          type: array
+          items:
+            type: object
+            properties:
+              fileName: { type: string }
+              fileUrl: { type: string, format: uri }
+              fileType: { type: string }
+              fileSize: { type: number }
+              uploadedBy: { type: string }
+              uploadedAt: { type: string, format: date-time }
+        createdBy: { type: string, description: User ID of the task creator }
+        isArchived: { type: boolean, description: Whether the task is archived }
+    ChatMessage:
+      type: object
+      properties:
+        _id: { type: string, description: Message ID }
+        workspace: { type: string, description: Workspace ID the message belongs to }
+        sender: { type: string, description: User ID of the message sender }
+        content: { type: string, description: Message text content }
+        imageUrl: { type: string, format: uri, description: URL of an attached image }
+        createdAt: { type: string, format: date-time, description: Timestamp when the message was created }
+    Comment:
+      type: object
+      properties:
+        _id: { type: string }
+        text: { type: string }
+        task: { type: string }
+        author: { type: string }
+        createdAt: { type: string, format: date-time }
+    ActivityLog:
+      type: object
+      properties:
+        _id: { type: string }
+        user: { type: string }
+        action: { type: string }
+        resourceType: { type: string }
+        resourceId: { type: string }
+        description: { type: string }
+        createdAt: { type: string, format: date-time }
+security:
+  - bearerAuth: []
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name: { type: string }
+                email: { type: string }
+                password: { type: string }
+      responses:
+        201: { description: User registered successfully }
+        400: { description: Bad request, e.g., invalid email or password format }
+        500: { description: Internal server error }
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string }
+                password: { type: string }
+      responses:
+        200:
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string, description: JWT token for authentication }
+                  user: { $ref: '#/components/schemas/User' }
+        401: { description: Unauthorized, e.g., invalid credentials }
+        500: { description: Internal server error }
+  /auth/verify-email:
+    post:
+      tags: [Auth]
+      summary: Verify user email
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string, description: Verification token received via email }
+      responses:
+        200: { description: Email verified successfully }
+        400: { description: Invalid or expired token }
+        500: { description: Internal server error }
+  /auth/reset-password-request:
+    post:
+      tags: [Auth]
+      summary: Request a password reset email
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        200: { description: Password reset email sent (if user exists) }
+        500: { description: Internal server error }
+  /auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Reset user password using a token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, newPassword, confirmPassword]
+              properties:
+                token: { type: string, description: Reset password token }
+                newPassword: { type: string, minLength: 8 }
+                confirmPassword: { type: string, minLength: 8 }
+      responses:
+        200: { description: Password reset successfully }
+        400: { description: Invalid token or passwords do not match }
+        500: { description: Internal server error }
+  /workspaces:
+    get:
+      tags: [Workspaces]
+      summary: Get all workspaces for the current user
+      responses:
+        200:
+          description: List of workspaces
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Workspace' }
+        401: { description: Unauthorized }
+        500: { description: Internal server error }
+    post:
+      tags: [Workspaces]
+      summary: Create a new workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, color]
+              properties:
+                name: { type: string }
+                description: { type: string }
+                color: { type: string }
+      responses:
+        201:
+          description: Workspace created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Workspace' }
+        401: { description: Unauthorized }
+        500: { description: Internal server error }
+  /workspaces/{workspaceId}:
+    get:
+      tags: [Workspaces]
+      summary: Get workspace details
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the workspace to retrieve
+      responses:
+        200:
+          description: Workspace details
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Workspace' }
+        401: { description: Unauthorized }
+        403: { description: Not a member of the workspace }
+        404: { description: Workspace not found }
+        500: { description: Internal server error }
+  /workspaces/{workspaceId}/projects:
+    get:
+      tags: [Workspaces]
+      summary: Get projects in a workspace
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the workspace to retrieve projects from
+      responses:
+        200:
+          description: List of projects in the workspace
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  projects:
+                    type: array
+                    items: { $ref: '#/components/schemas/Project' }
+                  workspace: { $ref: '#/components/schemas/Workspace' }
+        401: { description: Unauthorized }
+        403: { description: Not a member of the workspace }
+        404: { description: Workspace not found }
+        500: { description: Internal server error }
+  /workspaces/{workspaceId}/stats:
+    get:
+      tags: [Workspaces]
+      summary: Get statistics for a workspace
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the workspace to retrieve stats for
+      responses:
+        200: { description: Workspace statistics }
+        401: { description: Unauthorized }
+        403: { description: Not a member of the workspace }
+        404: { description: Workspace not found }
+        500: { description: Internal server error }
+  /workspaces/{workspaceId}/invite-member:
+    post:
+      tags: [Workspaces]
+      summary: Invite a member to a workspace
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the workspace to invite a member to
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, role]
+              properties:
+                email: { type: string, format: email }
+                role: { type: string, enum: [admin, member, viewer] }
+      responses:
+        200: { description: Invitation sent successfully }
+        400: { description: Bad request, e.g., user not found or already a member }
+        401: { description: Unauthorized }
+        403: { description: Not authorized to invite members }
+        404: { description: Workspace not found }
+        500: { description: Internal server error }
+  /workspaces/accept-invite-token:
+    post:
+      tags: [Workspaces]
+      summary: Accept a workspace invitation using a token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string, description: Invitation token }
+      responses:
+        200: { description: Invitation accepted successfully }
+        400: { description: Invalid or expired token }
+        500: { description: Internal server error }
+  /workspaces/{workspaceId}/accept-generate-invite:
+    post:
+      tags: [Workspaces]
+      summary: Accept a workspace invitation (generated by owner)
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the workspace to join
+      responses:
+        200: { description: Invitation accepted successfully }
+        401: { description: Unauthorized }
+        403: { description: Already a member or invitation not found }
+        404: { description: Workspace not found }
+        500: { description: Internal server error }
+  /workspaces/{workspaceId}/members/{userId}:
+    delete:
+      tags: [Workspaces]
+      summary: Remove a member from a workspace (owner only)
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the workspace
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the user to remove
+      responses:
+        200: { description: Member removed successfully }
+        400: { description: Cannot remove the workspace owner }
+        401: { description: Unauthorized }
+        403: { description: Only the workspace owner can remove members }
+        404: { description: Workspace or member not found }
+        500: { description: Internal server error }
+  /projects/{workspaceId}/create-project:
+    post:
+      tags: [Projects]
+      summary: Create a new project in a workspace
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the workspace to create the project in
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, status, startDate]
+              properties:
+                title: { type: string }
+                description: { type: string }
+                status: { type: string, enum: [Planning, In Progress, On Hold, Completed, Cancelled] }
+                startDate: { type: string, format: date-time }
+                dueDate: { type: string, format: date-time }
+                tags: { type: array, items: { type: string } }
+                members:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      user: { type: string }
+                      role: { type: string, enum: [manager, contributor, viewer] }
+      responses:
+        201:
+          description: Project created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Project' }
+        401: { description: Unauthorized }
+        403: { description: Not a member of the workspace }
+        404: { description: Workspace not found }
+        500: { description: Internal server error }
+  /projects/{projectId}:
+    get:
+      tags: [Projects]
+      summary: Get project details
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the project to retrieve
+      responses:
+        200:
+          description: Project details
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Project' }
+        401: { description: Unauthorized }
+        403: { description: Not a member of the project }
+        404: { description: Project not found }
+        500: { description: Internal server error }
+  /projects/{projectId}/tasks:
+    get:
+      tags: [Projects]
+      summary: Get tasks in a project
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the project to retrieve tasks from
+      responses:
+        200:
+          description: List of tasks in the project
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Task' }
+        401: { description: Unauthorized }
+        403: { description: Not a member of the project }
+        404: { description: Project not found }
+        500: { description: Internal server error }
+  /tasks/{projectId}/create-task:
+    post:
+      tags: [Tasks]
+      summary: Create a new task in a project
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the project to create the task in
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, status, priority, dueDate, assignees]
+              properties:
+                title: { type: string }
+                description: { type: string }
+                status: { type: string, enum: [To Do, In Progress, Done] }
+                priority: { type: string, enum: [Low, Medium, High] }
+                dueDate: { type: string, format: date-time }
+                assignees: { type: array, items: { type: string } }
+      responses:
+        201:
+          description: Task created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Task' }
+        401: { description: Unauthorized }
+        403: { description: Not a member of the project }
+        404: { description: Project or workspace not found }
+        500: { description: Internal server error }
+  /tasks/{taskId}:
+    get:
+      tags: [Tasks]
+      summary: Get task details
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the task to retrieve
+      responses:
+        200:
+          description: Task details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  task: { $ref: '#/components/schemas/Task' }
+                  project: { $ref: '#/components/schemas/Project' }
+        401: { description: Unauthorized }
+        403: { description: Not a member of the project }
+        404: { description: Task or project not found }
+        500: { description: Internal server error }
+  /tasks/{taskId}/title:
+    put:
+      tags: [Tasks]
+      summary: Update task title
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the task to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string }
+      responses:
+        200: { description: Task title updated }
+        401: { description: Unauthorized }
+        403: { description: Not a member of the project }
+        404: { description: Task or project not found }
+        500: { description: Internal server error }
+  /tasks/{taskId}/description:
+    put:
+      tags: [Tasks]
+      summary: Update task description
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the task to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [description]
+              properties:
+                description: { type: string }
+      responses:
+        200: { description: Task description updated }
+        401: { description: Unauthorized }
+        403: { description: Not a member of the project }
+        404: { description: Task or project not found }
+        500: { description: Internal server error }
+  /tasks/{taskId}/status:
+    put:
+      tags: [Tasks]
+      summary: Update task status
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the task to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [To Do, In Progress, Review, Done] }
+      responses:
+        200: { description: Task status updated }
+        401: { description: Unauthorized }
+        403: { description: Not a member of the project }
+        404: { description: Task not found }
+        500: { description: Internal server error }
+  /tasks/{taskId}/priority:
+    put:
+      tags: [Tasks]
+      summary: Update task priority
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the task to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [priority]
+              properties:
+                priority: { type: string, enum: [Low, Medium, High] }
+      responses:
+        200: { description: Task priority updated }
+        401: { description: Unauthorized }
+        403: { description: Not a member of the project }
+        404: { description: Task or project not found }
+        500: { description: Internal server error }
+  /tasks/{taskId}/assignees:
+    put:
+      tags: [Tasks]
+      summary: Update task assignees
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the task to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assignees]
+              properties:
+                assignees: { type: array, items: { type: string } }
+      responses:
+        200: { description: Task assignees updated }
+        401: { description: Unauthorized }
+        403: { description: Not a member of the project }
+        404: { description: Task or project not found }
+        500: { description: Internal server error }
+  /tasks/{taskId}/add-subtask:
+    post:
+      tags: [Tasks]
+      summary: Add a subtask to a task
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the task to add a subtask to
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string }
+      responses:
+        201: { description: Subtask added successfully }
+        401: { description: Unauthorized }
+        403: { description: Not a member of the project }
+        404: { description: Task or project not found }
+        500: { description: Internal server error }
+  /tasks/{taskId}/update-subtask/{subTaskId}:
+    put:
+      tags: [Tasks]
+      summary: Update a subtask's completion status
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the parent task
+        - name: subTaskId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the subtask to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [completed]
+              properties:
+                completed: { type: boolean }
+      responses:
+        200: { description: Subtask updated successfully }
+        401: { description: Unauthorized }
+        403: { description: Not a member of the project }
+        404: { description: Task or subtask not found }
+        500: { description: Internal server error }
+  /tasks/{taskId}/add-comment:
+    post:
+      tags: [Tasks]
+      summary: Add a comment to a task
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the task to add a comment to
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string }
+      responses:
+        201: { description: Comment added successfully }
+        401: { description: Unauthorized }
+        403: { description: Not a member of the project }
+        404: { description: Task or project not found }
+        500: { description: Internal server error }
+  /tasks/{taskId}/watch:
+    post:
+      tags: [Tasks]
+      summary: Toggle watching a task
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the task to watch/unwatch
+      responses:
+        200: { description: Task watch status toggled }
+        401: { description: Unauthorized }
+        403: { description: Not a member of the project }
+        404: { description: Task or project not found }
+        500: { description: Internal server error }
+  /tasks/{taskId}/achieved:
+    post:
+      tags: [Tasks]
+      summary: Toggle task archived status
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the task to archive/unarchive
+      responses:
+        200: { description: Task archived status toggled }
+        401: { description: Unauthorized }
+        403: { description: Not a member of the project }
+        404: { description: Task or project not found }
+        500: { description: Internal server error }
+  /tasks/my-tasks:
+    get:
+      tags: [Tasks]
+      summary: Get tasks assigned to the current user
+      parameters:
+        - name: workspaceId
+          in: query
+          required: false
+          schema: { type: string }
+          description: Optional. Filter tasks by workspace ID.
+      responses:
+        200:
+          description: List of tasks assigned to the user
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Task' }
+        401: { description: Unauthorized }
+        500: { description: Internal server error }
+  /tasks/{resourceId}/activity:
+    get:
+      tags: [Tasks]
+      summary: Get activity log for a resource (task, project, etc.)
+      parameters:
+        - name: resourceId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the resource to retrieve activity for
+      responses:
+        200:
+          description: List of activity logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ActivityLog' }
+        401: { description: Unauthorized }
+        500: { description: Internal server error }
+  /tasks/{taskId}/comments:
+    get:
+      tags: [Tasks]
+      summary: Get comments for a task
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the task to retrieve comments for
+      responses:
+        200:
+          description: List of comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Comment' }
+        401: { description: Unauthorized }
+        403: { description: Not a member of the project }
+        404: { description: Task not found }
+        500: { description: Internal server error }
+  /users/profile:
+    get:
+      tags: [Users]
+      summary: Get current user profile
+      responses:
+        200:
+          description: User profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        401: { description: Unauthorized }
+        500: { description: Internal server error }
+    put:
+      tags: [Users]
+      summary: Update user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                profilePicture: { type: string, format: uri }
+      responses:
+        200:
+          description: Profile updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        401: { description: Unauthorized }
+        500: { description: Internal server error }
+  /users/change-password:
+    put:
+      tags: [Users]
+      summary: Change user password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword, confirmPassword]
+              properties:
+                currentPassword: { type: string }
+                newPassword: { type: string, minLength: 8 }
+                confirmPassword: { type: string, minLength: 8 }
+      responses:
+        200: { description: Password changed successfully }
+        400: { description: Invalid current password or new passwords do not match }
+        401: { description: Unauthorized }
+        500: { description: Internal server error }
+  /chat/workspaces/{workspaceId}/messages:
+    get:
+      tags: [Chat]
+      summary: Get workspace messages
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the workspace to retrieve messages from
+        - name: limit
+          in: query
+          required: false
+          schema: { type: number, default: 50 }
+          description: Maximum number of messages to return
+        - name: before
+          in: query
+          required: false
+          schema: { type: string }
+          description: Message ID to retrieve messages older than this ID (for pagination)
+      responses:
+        200:
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ChatMessage' }
+        401: { description: Unauthorized }
+        403: { description: Not a member of the workspace }
+        404: { description: Workspace not found }
+        500: { description: Internal server error }
+    post:
+      tags: [Chat]
+      summary: Send a message to a workspace
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the workspace to send the message to
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                text: { type: string, description: Message text content }
+                image: { type: string, format: binary, description: Optional image attachment }
+      responses:
+        201:
+          description: Message sent
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ChatMessage' }
+        400: { description: Message must contain text or an image }
+        401: { description: Unauthorized }
+        403: { description: Not a member of the workspace }
+        404: { description: Workspace not found }
+        500: { description: Internal server error }
+  /chat/workspaces/{workspaceId}/messages/{messageId}:
+    put:
+      tags: [Chat]
+      summary: Update a message in a workspace (sender only)
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the workspace
+        - name: messageId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the message to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string, description: New message text content }
+      responses:
+        200:
+          description: Message updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ChatMessage' }
+        400: { description: Message must contain text or an image }
+        401: { description: Unauthorized }
+        403: { description: You can only edit your own messages }
+        404: { description: Message not found }
+        500: { description: Internal server error }
+    delete:
+      tags: [Chat]
+      summary: Delete a message from a workspace (sender only)
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the workspace
+        - name: messageId
+          in: path
+          required: true
+          schema: { type: string }
+          description: ID of the message to delete
+      responses:
+        200: { description: Message deleted successfully }
+        401: { description: Unauthorized }
+        403: { description: You can only delete your own messages }
+        404: { description: Message not found }
+        500: { description: Internal server error }
+  /achievements:
+    get:
+      tags: [Achievements]
+      summary: Get user achievements
+      responses:
+        200: { description: List of achievements }
+        401: { description: Unauthorized }
+        500: { description: Internal server error }
+  /achievements/seed:
+    post:
+      tags: [Achievements]
+      summary: Seed initial badges/achievements (admin only)
+      responses:
+        200: { description: Badges seeded successfully }
+        401: { description: Unauthorized }
+        403: { description: Not authorized (admin only) }
+        500: { description: Internal server error }
