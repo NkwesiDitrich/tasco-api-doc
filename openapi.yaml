@@ -56,7 +56,7 @@ components:
         title: { type: string, description: Project title }
         description: { type: string, description: Project description }
         workspace: { type: string, description: Workspace ID the project belongs to }
-        status: { type: string, enum: [Planning, In Progress, On Hold, Completed, Cancelled], description: Current status of the project }
+        status: { type: string, enum: ["Planning", "In Progress", "On Hold", "Completed", "Cancelled"], description: Current status of the project }
         startDate: { type: string, format: date-time, description: Project start date }
         dueDate: { type: string, format: date-time, description: Project due date }
         progress: { type: number, description: Project progress percentage (0-100) }
@@ -67,7 +67,7 @@ components:
         title: { type: string, description: Task title }
         description: { type: string, description: Task description }
         project: { type: string, description: Project ID the task belongs to }
-        status: { type: string, enum: [To Do, In Progress, Review, Done], description: Current status of the task }
+        status: { type: string, enum: ["To Do", "In Progress", "Review", "Done"], description: Current status of the task }
         priority: { type: string, enum: [Low, Medium, High], description: Task priority }
         assignees: { type: array, items: { type: string }, description: List of user IDs assigned to the task }
         watchers: { type: array, items: { type: string }, description: List of user IDs watching the task }
@@ -432,7 +432,7 @@ paths:
               properties:
                 title: { type: string }
                 description: { type: string }
-                status: { type: string, enum: [Planning, In Progress, On Hold, Completed, Cancelled] }
+                status: { type: string, enum: ["Planning", "In Progress", "On Hold", "Completed", "Cancelled"] }
                 startDate: { type: string, format: date-time }
                 dueDate: { type: string, format: date-time }
                 tags: { type: array, items: { type: string } }
@@ -621,7 +621,7 @@ paths:
               type: object
               required: [status]
               properties:
-                status: { type: string, enum: [To Do, In Progress, Review, Done] }
+                status: { type: string, enum: ["To Do", "In Progress", "Review", "Done"] }
       responses:
         200: { description: Task status updated }
         401: { description: Unauthorized }
